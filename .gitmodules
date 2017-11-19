@@ -1,0 +1,3 @@
+[submodule "dataset/chinese-poetry"]
+	path = dataset/chinese-poetry
+	url = https://github.com/chinese-poetry/chinese-poetry.git
