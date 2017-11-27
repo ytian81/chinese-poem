@@ -6,8 +6,9 @@ import torch.optim as optim
 import torch.nn as nn
 import random
 import time
+import os
 
-from utils import Variable, time_since, USE_CUDA
+from utils import Variable, time_since, USE_CUDA, simplify
 from data import poem_to_tensor
 
 class Solver(object):
@@ -23,6 +24,7 @@ class Solver(object):
     self.num_epochs = kwargs.pop('num_epochs', 2000)
     self.learning_rate = kwargs.pop('learning_rate', 1e-3)
 
+    self.save_every = kwargs.pop('save_every', 1000)
     self.print_every = kwargs.pop('print_every', 100)
     self.plot_every = kwargs.pop('plot_every', 10)
     self.verbose = kwargs.pop('verbose', True)
@@ -66,10 +68,42 @@ class Solver(object):
 
       if epoch % self.print_every == 0 and self.verbose:
         print('[%s, %d%%, %.4f]' % (time_since(start), epoch / self.num_epochs * 100, loss))
+        print(self.evaluate())
 
       if epoch % self.plot_every == 0:
         self.all_losses.append(loss_avg / self.plot_every)
         loss_avg = 0
 
-  def evaluate(self, start_with, temperature=0.8, max_length=100):
+      if epoch % self.save_every == 0:
+        model_name = "model/"
+        model_name += time.strftime('%m-%d_%H-%M/', time.localtime(start))
+        if not os.path.exists(model_name):
+          os.makedirs(model_name)
+        model_name += "char_rnn_%d.model" % epoch
+        torch.save(self.model, model_name)
+
+  @simplify
+  def evaluate(self, start_with="君不見黃河之水天上來", temperature=0.8, max_length=1000):
     hidden = self.model.init_hidden()
+    start_input = poem_to_tensor(start_with, self.vocab)
+    predicted = start_with
+
+    # prepare hidden state
+    for input_word in start_input[:-1]:
+      _, hidden = self.model(input_word, hidden)
+
+    word = input_word[-1]
+    for _ in range(max_length):
+      output, hidden = self.model(word, hidden)
+
+      # sample from network 
+      output_dist = output.data.view(-1).div(temperature).exp()
+      top_index = torch.multinomial(output_dist, 1)[0]
+
+      predicted_word = self.vocab[top_index]
+      if predicted_word == '<EOP>':
+        break
+      predicted += predicted_word
+      word = poem_to_tensor(predicted_word, self.vocab)
+
+    return predicted

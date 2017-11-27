@@ -4,7 +4,7 @@
 import time
 import math
 import torch
-
+from hanziconv import HanziConv
 
 USE_CUDA = torch.cuda.is_available()
 # dtype = torch.cuda.FloatTensor if USE_CUDA else torch.FloatTensor
@@ -21,3 +21,9 @@ def time_since(since):
   m = math.floor(s / 60)
   s -= m * 60
   return "%dm %ds" % (m, s)
+
+def simplify(func):
+  def wrapper(*args, **kwargs):
+    predicted = func(*args, **kwargs)
+    return HanziConv.toSimplified(predicted)
+  return wrapper
