@@ -36,6 +36,7 @@ class Solver(object):
 
     self.optim = optim.Adam(self.model.parameters(), lr=self.learning_rate)
     self.criterion = nn.CrossEntropyLoss()
+    self.all_losses = []
 
   def sample(self):
     datum = random.choice(self.data)
@@ -59,12 +60,23 @@ class Solver(object):
 
   def train(self):
     start = time.time()
-    self.all_losses = []
+    prefix = "model/"
+    prefix += time.strftime('%m-%d_%H-%M/', time.localtime(start))
+    if not os.path.exists(prefix):
+      os.makedirs(prefix)
+
+    best_loss = float('inf')
+    best_model = self.model
+
     loss_avg = 0.
 
     for epoch in range(1, self.num_epochs+1):
       loss = self.train_one_step(*self.sample())
       loss_avg += loss
+
+      if loss < best_loss:
+        best_loss = loss
+        best_model = self.model
 
       if epoch % self.print_every == 0 and self.verbose:
         print('[%s, %d%%, %.4f]' % (time_since(start), epoch / self.num_epochs * 100, loss))
@@ -75,16 +87,19 @@ class Solver(object):
         loss_avg = 0
 
       if epoch % self.save_every == 0:
-        model_name = "model/"
-        model_name += time.strftime('%m-%d_%H-%M/', time.localtime(start))
-        if not os.path.exists(model_name):
-          os.makedirs(model_name)
+        model_name = prefix
         model_name += "char_rnn_%d.model" % epoch
         torch.save(self.model, model_name)
 
+    model_name = prefix
+    model_name += "best_char_rnn.model"
+    torch.save(best_model, model_name)
+    print("save best model with loss %.3f" % best_loss)
+
   @simplify
-  def evaluate(self, start_with="君不見黃河之水天上來", temperature=0.8, max_length=1000):
+  def evaluate(self, start_with="牀前看月光", temperature=0.8, max_length=1000):
     hidden = self.model.init_hidden()
+    self.model.zero_grad()
     start_input = poem_to_tensor(start_with, self.vocab)
     predicted = start_with
 
