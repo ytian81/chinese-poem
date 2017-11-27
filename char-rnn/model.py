@@ -20,11 +20,19 @@ class RNN(nn.Module):
     # TODO:
     # add dropout
 
+    self.init_weight()
+
   def forward(self, word, hidden):
     embedding = self.encoder(word.view(1, -1))
     output, hidden = self.lstm(embedding.view(1, 1, -1), hidden)
     output = self.decoder(output.view(1, -1))
     return output, hidden
+
+  def init_weight(self):
+      init_weight_range = 0.1
+      self.encoder.weight.data.uniform_(-init_weight_range, init_weight_range)
+      self.decoder.bias.data.fill_(0)
+      self.decoder.weight.data.uniform_(-init_weight_range, init_weight_range)
 
   def init_hidden(self):
     weight = next(self.parameters()).data

@@ -54,6 +54,7 @@ class Solver(object):
       loss += self.criterion(output, target_word)
 
     loss.backward()
+    torch.nn.utils.clip_grad_norm(self.model.parameters(), 0.25)
     self.optim.step()
 
     return loss.data[0]/input.size()[0]
@@ -99,7 +100,6 @@ class Solver(object):
   @simplify
   def evaluate(self, start_with="牀前看月光", temperature=0.8, max_length=1000):
     hidden = self.model.init_hidden()
-    self.model.zero_grad()
     start_input = poem_to_tensor(start_with, self.vocab)
     predicted = start_with
 
@@ -112,7 +112,8 @@ class Solver(object):
       output, hidden = self.model(word, hidden)
 
       # sample from network 
-      output_dist = output.data.view(-1).div(temperature).exp()
+      output_dist = output.data.view(-1).div(temperature).exp().cpu()
+      # print(output_dist)
       top_index = torch.multinomial(output_dist, 1)[0]
 
       predicted_word = self.vocab[top_index]
