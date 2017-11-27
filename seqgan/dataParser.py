@@ -48,12 +48,16 @@ def parseRawData(author = None, constrains = None, max_len = None):
             if flag:
                 continue
             for sentence in poetry.get("paragraphs"):
-                if max_len is not None:
-                    if len(pdata) + len(sentence) > max_len:
-                        rst.append(pdata)
-                        pdata = ""
-                pdata += sentence
-                pdata = sentenceParse(pdata)
+                sp = re.split("[！。]", sentence)
+                for tr in sp:
+                    if max_len is not None:
+                        if len(tr) > max_len:
+                            continue
+                        if len(pdata) + len(tr) > max_len and len(pdata) > 11 and len(pdata) <= max_len:
+                            rst.append(pdata)
+                            pdata = ""
+                    pdata += tr
+                    pdata = sentenceParse(pdata)
 
             if len(pdata) > 11 and len(pdata) <= max_len:
                 rst.append(pdata)

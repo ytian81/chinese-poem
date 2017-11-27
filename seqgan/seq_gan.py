@@ -12,22 +12,21 @@ def prepare_args():
     args['gen_pretrain_epochs'] = 15
 
     args['dis_retrain'] = True
-    args['dis_step_num'] = 1
-    args['dis_epoch_num'] = 10
-    args['dis_neg_sample_num'] = 100
+    args['dis_step_num'] = 5
+    args['dis_epoch_num'] = 5
+    args['dis_neg_sample_num'] = 1000
     args['dis_batch_size'] = 32
 
-    args['adv_epochs'] = 20
-    args['adv_pg_iters'] = 2
-    args['adv_pg_samples'] = 20
+    args['adv_epochs'] = 5
+    args['adv_pg_iters'] = 15
+    args['adv_pg_samples'] = 2000
 
     args['use_gpu'] = False
 
     return args
 
 def pre_process_data():
-    data = dataParser.parseRawData(max_len=128)
-    #data = data[0:500]
+    data = dataParser.parseRawData(max_len=33)
 
     datalen = [len(x) for x in data]
     print (np.unique(datalen))
@@ -84,6 +83,7 @@ def train_discriminator(discriminator, generator, optimizer, true_data, word_to_
             print('d-step %d epoch %d : ' % (d_step + 1, epoch + 1))
             total_loss = 0
             total_acc = 0
+            total_posneg = 0
 
             for i in range(0, len(true_data) + args['dis_neg_sample_num'], args['dis_batch_size']):
                 inp, target = dis_inp[i:i + args['dis_batch_size']], dis_target[i:i + args['dis_batch_size']]
@@ -96,10 +96,11 @@ def train_discriminator(discriminator, generator, optimizer, true_data, word_to_
 
                 total_loss += loss.data[0]
                 total_acc += torch.sum((out>0.5)==(target>0.5)).data[0]
+                total_posneg += torch.sum((out<0.5)==(target<0.5)).data[0]
 
-            total_loss /= np.ceil(2 * args['dis_neg_sample_num'] / float(args['dis_batch_size']))
-            total_acc /= float(2 * args['dis_neg_sample_num'])
-            print('Total loss and acc: ', total_loss, total_acc)
+            total_loss /= np.ceil((len(true_data) + args['dis_neg_sample_num']) / float(args['dis_batch_size']))
+            total_acc /= float(len(true_data) + args['dis_neg_sample_num'])
+            print('Total loss and acc: ', total_loss, total_acc, total_posneg/float(len(true_data) + args['dis_neg_sample_num']))
 
 
 def train_generator_PG(discriminator, generator, gen_optimizer, word_to_ix, true_data, args, use_gpu=False):
@@ -109,7 +110,7 @@ def train_generator_PG(discriminator, generator, gen_optimizer, word_to_ix, true
         rewards = discriminator.batchClassify(input)
 
         gen_optimizer.zero_grad()
-        print(rewards)
+
         pg_loss = generator.PGLoss(input, target, rewards)
         pg_loss.backward()
         gen_optimizer.step()
@@ -135,7 +136,7 @@ def main():
 
     # Initialize variables
     generator = GeneratorModel(vocab_size, 256, 256)
-    discriminator = DiscriminatorModel(vocab_size, 512, [256, 256], [128, 64, 1])
+    discriminator = DiscriminatorModel(vocab_size, 512, len(vec_data[0]), [[16, 3, 1], [8, 5, 2], [4, 7, 3]], [128, 64, 1])
     gen_optimizer = optim.Adam(generator.parameters(), lr=1e-2)
     dis_optimizer = optim.Adagrad(discriminator.parameters())
 
@@ -158,6 +159,7 @@ def main():
     # start adversarial training
     print('\n=========\nAdversarial Training \n=========')
     train_adversarial(discriminator, generator, gen_optimizer, dis_optimizer, vec_data, word_to_ix, args, args['use_gpu'])
+    torch.save(generator, 'generator_adv.pt')
 
 
 

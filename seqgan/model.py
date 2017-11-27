@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as F
+import numpy as np
 
 class GeneratorModel(nn.Module):
     def __init__(self, vocab_size, embedding_dim, hidden_dim):
@@ -58,50 +59,56 @@ class GeneratorModel(nn.Module):
 
 
 class DiscriminatorModel(nn.Module):
-    '''def __init__(self, vocab_size, embedding_dim, filter_sizes, linear_hid_sizes):
+    def __init__(self, vocab_size, embedding_dim, seq_len, filter_sizes, linear_hid_sizes):
         super(DiscriminatorModel, self).__init__()
-        self.lstm_hid_sizes = lstm_hid_sizes
+        self.filter_sizes = filter_sizes
+        self.seq_len = seq_len
         self.linear_hid_sizes = linear_hid_sizes
+        self.embedding_dim = embedding_dim
         self.embeddings = nn.Embedding(vocab_size, embedding_dim)
 
-        last_dim = embedding_dim
-        self.lstms = []
-        for i in range(len(lstm_hid_sizes)):
-            self.lstms.append(nn.LSTM(last_dim, self.lstm_hid_sizes[i]))
-            last_dim = self.lstm_hid_sizes[i]
+        current_size = [embedding_dim, seq_len]
+        current_nfilter = 1
+        self.filters = []
+        for i in range(len(filter_sizes)):
+            self.filters.append(nn.Sequential(
+                nn.Conv2d(current_nfilter, int(filter_sizes[i][0]), kernel_size=int(filter_sizes[i][1]), padding=int(np.ceil(filter_sizes[i][1]/2)), stride=int(filter_sizes[i][2])),
+                nn.BatchNorm2d(filter_sizes[i][0]),
+                nn.ReLU(),
+                nn.MaxPool2d(2)))
+            current_size[0] = np.ceil((current_size[0])/filter_sizes[i][2]/2)
+            current_size[1] = np.ceil((current_size[1])/filter_sizes[i][2]/2)
+            current_nfilter = filter_sizes[i][0]
         self.linears = []
+        last_dim = current_size[0]*current_size[1]*current_nfilter
         for i in range(len(linear_hid_sizes)):
-            self.linears.append(nn.Linear(last_dim, self.linear_hid_sizes[i]))
+            self.linears.append(nn.Linear(int(last_dim), int(self.linear_hid_sizes[i])))
             last_dim = self.linear_hid_sizes[i]
 
         self.dropout = nn.Dropout(0.1)
-        self.softmax = nn.LogSoftmax()
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, input):
         batch_size, seq_len = input.size()
 
-        hiddens = self.initHidden(batch_size=batch_size)
         embeds = self.embeddings(input).view((seq_len, batch_size, -1))
-
-        lval = embeds
-        new_hidden = []
-        for i in range(len(self.lstm_hid_sizes)):
-            lval, hidden = self.lstms[i](lval, hiddens[i])
-            new_hidden.append(hidden)
-        lval = lval[-1].view(batch_size, -1)
+        lval = embeds.view(batch_size, 1, seq_len, -1)
+        for i in range(len(self.filters)):
+            lval = self.filters[i](lval)
+        lval = lval.view(batch_size, -1)
         for i in range(len(self.linear_hid_sizes)):
-            lval = F.relu(self.linears[i](lval))
+            lval = F.tanh(self.linears[i](lval))
             lval = self.dropout(lval)
-        output = self.softmax(lval)
+        output = self.sigmoid(lval)
 
-        return output, hiddens
-
+        return output
 
 
     def batchClassify(self, input):
-        out, hiddens = self.forward(input)
-        return out'''
-    def __init__(self, vocab_size, embedding_dim, lstm_hid_sizes, linear_hid_sizes):
+        out = self.forward(input)
+        return out.view(-1)
+
+    '''def __init__(self, vocab_size, embedding_dim, lstm_hid_sizes, linear_hid_sizes):
         super(DiscriminatorModel, self).__init__()
         self.lstm_hid_sizes = lstm_hid_sizes
         self.linear_hid_sizes = linear_hid_sizes
@@ -148,5 +155,5 @@ class DiscriminatorModel(nn.Module):
 
     def batchClassify(self, input):
         out, hiddens = self.forward(input)
-        return out
+        return out'''
 
