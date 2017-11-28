@@ -8,6 +8,8 @@ import torch
 import jieba
 import jieba.posseg
 import collections
+import numpy as np
+from sklearn.decomposition import PCA
 
 from utils import Variable
 
@@ -82,7 +84,24 @@ def high_freq_word_cut(poems):
   words = jieba.posseg.cut(poems)
   seg_list = (word for word, tag in words if tag.startswith('n'))
   count = collections.Counter(seg_list)
-  return count
+  return dict(count)
+
+def make_sub_topics(count, poems):
+  count_keys = list(count.keys())
+
+  # build sub_topics
+  sub_topics = np.zeros((len(poems), len(count)))
+  for idx, poem in enumerate(poems):
+      words = jieba.posseg.cut(poem)
+      seg_list = (word for word, tag in words if tag.startswith('n'))
+      seg_list_index = [count_keys.index(key) for key in seg_list]
+      sub_topics[idx, seg_list_index] = 1
+  return sub_topics
+
+def make_PCA_reduction(sub_topics, embedding_size):
+  pca = PCA(n_components=embedding_size)
+  reduced_sub_topics = pca.fit_transform(sub_topics)
+  return reduced_sub_topics, pca
 
 if __name__ == '__main__':
   load_poem(1000, '李白', constraint=7)

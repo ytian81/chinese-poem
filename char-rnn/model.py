@@ -37,5 +37,5 @@ class RNN(nn.Module):
 
   def init_hidden(self):
     weight = next(self.parameters()).data
-    return (Variable(weight.new(self.lstm_size, 1, self.hidden_size).zero_()),
-            Variable(weight.new(self.lstm_size, 1, self.hidden_size).zero_()))
+    return [Variable(weight.new(self.lstm_size, 1, self.hidden_size).zero_()),
+            Variable(weight.new(self.lstm_size, 1, self.hidden_size).zero_())]

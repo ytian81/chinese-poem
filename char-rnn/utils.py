@@ -7,7 +7,7 @@ import torch
 from hanziconv import HanziConv
 
 USE_CUDA = torch.cuda.is_available()
-# dtype = torch.cuda.FloatTensor if USE_CUDA else torch.FloatTensor
+dtype = torch.cuda.FloatTensor if USE_CUDA else torch.FloatTensor
 
 class Variable(torch.autograd.Variable):
     def __init__(self, data, *args, **kwargs):

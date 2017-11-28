@@ -8,7 +8,7 @@ import random
 import time
 import os
 
-from utils import Variable, time_since, USE_CUDA, simplify
+from utils import Variable, time_since, USE_CUDA, simplify, dtype
 from data import poem_to_tensor
 
 class Solver(object):
@@ -18,6 +18,7 @@ class Solver(object):
     if USE_CUDA:
       self.model = self.model.cuda()
     self.data = data
+    self.sub_topics = kwargs.pop('sub_topics', None)
     self.vocab = vocab
 
     # Unpack keyword arguments
@@ -40,14 +41,21 @@ class Solver(object):
     self.best_model = None
 
   def sample(self):
-    datum = random.choice(self.data)
+    sub_topic = None
+    if self.sub_topics is None:
+      datum  = random.choice(self.data)
+    else:
+      datum, sub_topic = random.choice([*zip(self.data, self.sub_topics)])
+      sub_topic = Variable(torch.from_numpy(sub_topic).type(dtype))
     input = poem_to_tensor(datum, self.vocab)
     target = poem_to_tensor(datum[1:], self.vocab, True)
-    return input, target
+    return input, target, sub_topic
 
-  def train_one_step(self, input, target):
+  def train_one_step(self, input, target, sub_topic=None):
     self.model.train()
     hidden = self.model.init_hidden()
+    if sub_topic is not None:
+      hidden[0][0,0,:] = sub_topic
     self.model.zero_grad()
     loss = 0.
 
@@ -114,7 +122,7 @@ class Solver(object):
     for _ in range(max_length):
       output, hidden = self.model(word, hidden)
 
-      # sample from network 
+      # sample from network
       output_dist = output.data.view(-1).div(temperature).exp().cpu()
       # print(output_dist)
       top_index = torch.multinomial(output_dist, 1)[0]
