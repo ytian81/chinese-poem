@@ -46,6 +46,7 @@ class Solver(object):
     return input, target
 
   def train_one_step(self, input, target):
+    self.model.train()
     hidden = self.model.init_hidden()
     self.model.zero_grad()
     loss = 0.
@@ -100,6 +101,7 @@ class Solver(object):
 
   @simplify
   def evaluate(self, start_with="牀前看月光", temperature=0.8, max_length=1000):
+    self.model.eval()
     hidden = self.model.init_hidden()
     start_input = poem_to_tensor(start_with, self.vocab)
     predicted = start_with

@@ -7,7 +7,7 @@ import torch.nn as nn
 from utils import Variable
 
 class RNN(nn.Module):
-  def __init__(self, vocab_size, embedding_size, hidden_size, lstm_size=2):
+  def __init__(self, vocab_size, embedding_size, hidden_size, lstm_size=2, dropout_rate=0.5):
     super(RNN, self).__init__()
     self.vocab_size = vocab_size
     self.embedding_size = embedding_size
@@ -15,16 +15,17 @@ class RNN(nn.Module):
     self.lstm_size = lstm_size
 
     self.encoder = nn.Embedding(vocab_size, embedding_size)
-    self.lstm = nn.LSTM(embedding_size, hidden_size, lstm_size)
+    self.lstm = nn.LSTM(embedding_size, hidden_size, lstm_size, dropout=dropout_rate)
     self.decoder = nn.Linear(hidden_size, vocab_size)
-    # TODO:
-    # add dropout
+    self.drop = nn.Dropout(dropout_rate)
 
     self.init_weight()
 
   def forward(self, word, hidden):
     embedding = self.encoder(word.view(1, -1))
+    embedding = self.drop(embedding)
     output, hidden = self.lstm(embedding.view(1, 1, -1), hidden)
+    output = self.drop(output)
     output = self.decoder(output.view(1, -1))
     return output, hidden
 
