@@ -75,16 +75,16 @@ class Solver(object):
       loss = self.train_one_step(*self.sample())
       loss_avg += loss
 
-      if loss < best_loss:
-        best_loss = loss
-        best_model = self.model
-
       if epoch % self.print_every == 0 and self.verbose:
         print('[%s, %d%%, %.4f]' % (time_since(start), epoch / self.num_epochs * 100, loss))
         print(self.evaluate())
 
       if epoch % self.plot_every == 0:
-        self.all_losses.append(loss_avg / self.plot_every)
+        loss_avg /= self.plot_every
+        self.all_losses.append(loss_avg)
+        if loss_avg < best_loss:
+          best_loss = loss_avg
+          best_model = self.model
         loss_avg = 0
 
       if epoch % self.save_every == 0:
