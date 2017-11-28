@@ -91,6 +91,19 @@ def batchwise_sample(generator, num_samples, batch_size, max_len, word_to_ix):
 
     return torch.cat(samples, 0)[:num_samples]
 
+# convert from list of parameter to 1d numpy array
+def param2flat(params):
+    pm = np.array([], dtype=np.float32)
+    for p in params:
+        pm = np.append(pm, p.data.numpy())
+    return pm
+
+def flat2param(flatpm, params):
+    cur_pos = 0
+    for pm in params:
+        shape = pm.data.numpy().shape
+        pm.data = torch.from_numpy(np.reshape(flatpm[cur_pos:cur_pos + np.prod(shape)], shape))
+
 
 
 

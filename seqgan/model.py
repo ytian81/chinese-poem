@@ -80,7 +80,7 @@ class DiscriminatorModel(nn.Module):
             current_size[1] = np.ceil((current_size[1])/filter_sizes[i][2]/2)
             current_nfilter = filter_sizes[i][0]
         self.linears = []
-        last_dim = current_size[0]*current_size[1]*current_nfilter
+        last_dim = 88#current_size[0]*current_size[1]*current_nfilter
         for i in range(len(linear_hid_sizes)):
             self.linears.append(nn.Linear(int(last_dim), int(self.linear_hid_sizes[i])))
             last_dim = self.linear_hid_sizes[i]
@@ -96,6 +96,7 @@ class DiscriminatorModel(nn.Module):
         for i in range(len(self.filters)):
             lval = self.filters[i](lval)
         lval = lval.view(batch_size, -1)
+
         for i in range(len(self.linear_hid_sizes)):
             lval = F.tanh(self.linears[i](lval))
             lval = self.dropout(lval)
