@@ -37,6 +37,7 @@ class Solver(object):
     self.optim = optim.Adam(self.model.parameters(), lr=self.learning_rate)
     self.criterion = nn.CrossEntropyLoss()
     self.all_losses = []
+    self.best_model = None
 
   def sample(self):
     datum = random.choice(self.data)
@@ -67,7 +68,7 @@ class Solver(object):
       os.makedirs(prefix)
 
     best_loss = float('inf')
-    best_model = self.model
+    self.best_model = self.model
 
     loss_avg = 0.
 
@@ -84,7 +85,7 @@ class Solver(object):
         self.all_losses.append(loss_avg)
         if loss_avg < best_loss:
           best_loss = loss_avg
-          best_model = self.model
+          self.best_model = self.model
         loss_avg = 0
 
       if epoch % self.save_every == 0:
@@ -94,7 +95,7 @@ class Solver(object):
 
     model_name = prefix
     model_name += "best_char_rnn.model"
-    torch.save(best_model, model_name)
+    torch.save(self.best_model, model_name)
     print("save best model with loss %.3f" % best_loss)
 
   @simplify
