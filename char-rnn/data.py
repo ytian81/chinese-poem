@@ -5,6 +5,9 @@ import os, glob
 import json
 import re
 import torch
+import jieba
+import jieba.posseg
+import collections
 
 from utils import Variable
 
@@ -34,7 +37,7 @@ def load_poem(max_train=None, author=None, constraint=None, base_dir=BASE_DIR):
 
   if author is not None:
     poems = [poem for poem in poems if poem["author"]==author]
-    
+
   if constraint is not None:
     poems = [poem for poem in poems if is_constrained(poem["paragraphs"], constraint)]
 
@@ -73,6 +76,13 @@ def poem_to_tensor(poem, vocab, is_target=False):
   if is_target:
     word_indexes.append(vocab.index('<EOP>'))
   return Variable(torch.LongTensor(word_indexes))
+
+def high_freq_word_cut(poems):
+  poems = ''.join(poems)
+  words = jieba.posseg.cut(poems)
+  seg_list = (word for word, tag in words if tag.startswith('n'))
+  count = collections.Counter(seg_list)
+  return count
 
 if __name__ == '__main__':
   load_poem(1000, '李白', constraint=7)
