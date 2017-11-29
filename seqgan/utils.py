@@ -17,7 +17,7 @@ def prepare_batch_sequence(data, word_to_ix):
         idxs.insert(0, word_to_ix['<START>'])
         idxs.append(word_to_ix['<END>'])
         for j in range(len(idxs), max_len+2):
-            idxs.append(word_to_ix['<PAD>'])
+            idxs.append(word_to_ix['<END>'])
 
         tensor = torch.LongTensor(idxs)
         tensor_data[i] = tensor

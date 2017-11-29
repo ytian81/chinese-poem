@@ -2,7 +2,7 @@ import torch
 import pickle as p
 from utils import *
 
-model = torch.load('generator_adv.pt')
+model = torch.load('generator_pretrain.pt')
 max_length = 200
 rFile = open('wordDic', 'rb')
 word_to_ix = p.load(rFile)
@@ -36,9 +36,9 @@ def sample(startWords=['<START>']):
 
 
 
-print(sample(["春"]))
-print(sample(["花"]))
-print(sample(["秋"]))
-print(sample(["明","日","登","高","去"]))
-print(sample(["君","不","見"]))
+print(sample(['<START>',"春"]))
+#print(sample(['<START>',"花"]))
+#print(sample(['<START>',"秋"]))
+#print(sample(['<START>',"明","日"]))
+#print(sample(['<START>',"君"]))
 print(sample())

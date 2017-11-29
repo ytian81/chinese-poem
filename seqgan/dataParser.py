@@ -49,13 +49,13 @@ def parseRawData(author = None, constrain = None, max_len = None):
                         rst.append(pdata)
                         pdata = ""
                         continue
-            if pdata != "" or len(pdata) < 10:
+            if pdata != "" and len(pdata) > 10:
                 rst.append(pdata)
         return rst
     data = []
     src = '../dataset/chinese-poetry/json/'
     for filename in os.listdir(src):
-        if filename.startswith("poet.tang"):
+        if filename.startswith("poet.song"):
             data.extend(handleJson(src+filename))
     return data
 

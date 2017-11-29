@@ -7,19 +7,19 @@ from utils import *
 
 def prepare_args():
     args = {}
-    args['gen_retrain'] = True
+    args['gen_retrain'] = False
     args['gen_batch_size'] = 32
-    args['gen_pretrain_epochs'] = 20
+    args['gen_pretrain_epochs'] = 40
 
-    args['dis_retrain'] = True
-    args['dis_step_num'] = 5
+    args['dis_retrain'] = False
+    args['dis_step_num'] = 15
     args['dis_epoch_num'] = 5
-    args['dis_neg_sample_num'] = 1000
+    args['dis_neg_sample_num'] = 500
     args['dis_batch_size'] = 32
 
     args['adv_epochs'] = 5
     args['adv_pg_iters'] = 15
-    args['adv_pg_samples'] = 200
+    args['adv_pg_samples'] = 300
     args['use_cem'] = False
     args['cem_std'] = None
 
@@ -28,7 +28,8 @@ def prepare_args():
     return args
 
 def pre_process_data():
-    data = dataParser.parseRawData(constrain = 5, author="李白", max_len=60)
+    data = dataParser.parseRawData(constrain = None, author="蘇軾", max_len=100)
+    data = data[0:500]
 
     datalen = [len(x) for x in data]
     print (np.unique(datalen))
@@ -82,7 +83,8 @@ def train_generator(generator, true_data, args, use_gpu = False):
     return generator
 
 def train_discriminator(discriminator, generator, true_data, word_to_ix, args, use_gpu=False, step_num=10, epoch_num=3):
-    optimizer = optim.Adagrad(discriminator.parameters())
+    optimizer = optim.Adam(discriminator.parameters(), 1e-3)
+    loss_curves = []
     for d_step in range(step_num):
         s = batchwise_sample(generator, args['dis_neg_sample_num'], args['dis_batch_size'], len(true_data[0]), word_to_ix)
         dis_inp, dis_target = prepare_discriminator_training_data(true_data, s, gpu=use_gpu)
@@ -108,15 +110,17 @@ def train_discriminator(discriminator, generator, true_data, word_to_ix, args, u
             total_loss /= np.ceil((len(true_data) + args['dis_neg_sample_num']) / float(args['dis_batch_size']))
             total_acc /= float(len(true_data) + args['dis_neg_sample_num'])
             print('Total loss and acc: ', total_loss, total_acc, total_posneg/float(len(true_data) + args['dis_neg_sample_num']))
+            loss_curves.append(total_loss)
 
             ss = batchwise_sample(generator, 4, 2, len(true_data[0]), word_to_ix)
             dis_inps, dis_targets = prepare_discriminator_training_data(true_data[0:4], ss, gpu=use_gpu)
             print(discriminator.batchClassify(dis_inps))
-    return discriminator
+    return discriminator, loss_curves
 
 
 def train_generator_PG(discriminator, generator, word_to_ix, true_data, args, use_gpu=False):
-    optimizer = optim.Adam(generator.parameters(), lr=1e-2)
+    optimizer = optim.Adam(generator.parameters(), lr=1e-4)
+    loss_curve = []
     for i in range(args['adv_pg_iters']):
         print("-----Adversarial PG Iter ", i, " -----------")
         s = batchwise_sample(generator, args['adv_pg_samples'], 1, len(true_data[0]), word_to_ix)
@@ -128,8 +132,9 @@ def train_generator_PG(discriminator, generator, word_to_ix, true_data, args, us
         pg_loss.backward()
         optimizer.step()
         print('PG_loss\t%f\tAvgReward\t%f'%(pg_loss.data[0],float(np.mean(rewards.data.numpy()))))
+        loss_curve.append(pg_loss.data[0])
     torch.save(generator, 'generator_adv.pt')
-    return generator
+    return generator, loss_curve
 
 
 
@@ -179,6 +184,8 @@ def train_generator_CEM(discriminator, generator, word_to_ix, true_data, args, u
 
 
 def train_adversarial(discriminator, generator, true_data, word_to_ix, args, use_gpu=False):
+    gen_curve = []
+    dis_curve = []
     for epoch in range(args['adv_epochs']):
         print('\n--------\nEPOCH %d\n--------' % (epoch + 1))
         # TRAIN GENERATOR
@@ -186,11 +193,16 @@ def train_adversarial(discriminator, generator, true_data, word_to_ix, args, use
         if args['use_cem']:
             generator = train_generator_CEM(discriminator, generator, word_to_ix, true_data, args)
         else:
-            generator = train_generator_PG(discriminator, generator, word_to_ix, true_data, args)
+            generator, loss_curve = train_generator_PG(discriminator, generator, word_to_ix, true_data, args)
+            gen_curve += loss_curve
 
         # TRAIN DISCRIMINATOR
         print('\nAdversarial Training Discriminator : ')
-        discriminator = train_discriminator(discriminator, generator, true_data, word_to_ix, args, args['use_gpu'], step_num=5, epoch_num=3)
+        discriminator, loss_curves = train_discriminator(discriminator, generator, true_data, word_to_ix, args, args['use_gpu'], step_num=5, epoch_num=5)
+        dis_curve += loss_curves
+
+        np.savetxt('adv_gen_loss.txt', gen_curve)
+        np.savetxt('adv_dis_loss.txt', dis_curve)
     return generator
 
 def main():
@@ -199,8 +211,8 @@ def main():
     vocab_size, word_to_ix, vec_data = pre_process_data()
 
     # Initialize variables
-    generator = GeneratorModel(vocab_size, 256, 256)
-    discriminator = DiscriminatorModel(vocab_size, 512, len(vec_data[0]), [[16, 3, 1], [8, 5, 2], [4, 7, 3]], [128, 64, 1])
+    generator = GeneratorModel(vocab_size, 512, 128)
+    discriminator = DiscriminatorModel(vocab_size, 512, len(vec_data[0]), [[16, 3, 1], [4, 3, 3]], [128, 64, 1])
 
     # pre-training using maximum-likelihood model or load it directly
     print('\n=========\nPre-train Generator \n=========')
@@ -213,7 +225,7 @@ def main():
     # pre-train discriminator model
     print('\n=========\nPre-train Discriminator \n=========')
     if args['dis_retrain']:
-        discriminator = train_discriminator(discriminator, generator, vec_data, word_to_ix, args, args['use_gpu'], step_num=args['dis_step_num'], epoch_num=args['dis_epoch_num'])
+        discriminator, loss_curves = train_discriminator(discriminator, generator, vec_data, word_to_ix, args, args['use_gpu'], step_num=args['dis_step_num'], epoch_num=args['dis_epoch_num'])
         torch.save(discriminator, 'discriminator_pretrain.pt')
     else:
         discriminator = torch.load('discriminator_pretrain.pt')
