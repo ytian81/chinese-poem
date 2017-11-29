@@ -7,11 +7,11 @@ from utils import *
 
 def prepare_args():
     args = {}
-    args['gen_retrain'] = False
+    args['gen_retrain'] = True
     args['gen_batch_size'] = 32
-    args['gen_pretrain_epochs'] = 15
+    args['gen_pretrain_epochs'] = 20
 
-    args['dis_retrain'] = False
+    args['dis_retrain'] = True
     args['dis_step_num'] = 5
     args['dis_epoch_num'] = 5
     args['dis_neg_sample_num'] = 1000
@@ -20,7 +20,7 @@ def prepare_args():
     args['adv_epochs'] = 5
     args['adv_pg_iters'] = 15
     args['adv_pg_samples'] = 200
-    args['use_cem'] = True
+    args['use_cem'] = False
     args['cem_std'] = None
 
     args['use_gpu'] = False
@@ -28,7 +28,7 @@ def prepare_args():
     return args
 
 def pre_process_data():
-    data = dataParser.parseRawData(max_len = 88, author="李白")
+    data = dataParser.parseRawData(constrain = 5, author="李白", max_len=60)
 
     datalen = [len(x) for x in data]
     print (np.unique(datalen))
@@ -118,6 +118,7 @@ def train_discriminator(discriminator, generator, true_data, word_to_ix, args, u
 def train_generator_PG(discriminator, generator, word_to_ix, true_data, args, use_gpu=False):
     optimizer = optim.Adam(generator.parameters(), lr=1e-2)
     for i in range(args['adv_pg_iters']):
+        print("-----Adversarial PG Iter ", i, " -----------")
         s = batchwise_sample(generator, args['adv_pg_samples'], 1, len(true_data[0]), word_to_ix)
         input, target = prepare_generator_training_data(s, gpu=use_gpu)
         rewards = discriminator.batchClassify(input)
@@ -152,6 +153,7 @@ def train_generator_CEM(discriminator, generator, word_to_ix, true_data, args, u
         avg_rewards = []
         for j in range(param_samp_num):
             flat2param(samp_params[j], generator_parameters)
+
             s = batchwise_sample(generator, eval_samp_num, 1, len(true_data[0]), word_to_ix)
             input, target = prepare_generator_training_data(s, gpu=use_gpu)
             rewards = discriminator.batchClassify(input)

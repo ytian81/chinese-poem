@@ -7,8 +7,7 @@ max_length = 200
 rFile = open('wordDic', 'rb')
 word_to_ix = p.load(rFile)
 
-def invert_dict(d):
-    return dict((v, k) for k, v in d.items())
+print(list(model.parameters())[0])
 
 
 ix_to_word = invert_dict(word_to_ix)
@@ -28,7 +27,7 @@ def sample(startWords=['<START>']):
         w = ix_to_word[topi]
         if i < len(startWords)-1:
             w = startWords[i+1]
-        if w == "<END>":
+        if w == "<END>" or w == "<PAD>":
             break
         else:
             output_name += w
@@ -42,3 +41,4 @@ print(sample(["花"]))
 print(sample(["秋"]))
 print(sample(["明","日","登","高","去"]))
 print(sample(["君","不","見"]))
+print(sample())

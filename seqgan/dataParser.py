@@ -4,7 +4,7 @@ import json
 import re
 
 # data process code adapted from https://github.com/justdark/pytorch-poetry-gen
-def parseRawData(author = None, constrains = None, max_len = None):
+def parseRawData(author = None, constrain = None, max_len = None):
     rst = []
 
     def sentenceParse(para):
@@ -17,7 +17,7 @@ def parseRawData(author = None, constrains = None, max_len = None):
         r = ""
         for s in result:
             if s not in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-']:
-                r += s;
+                r += s
         r, number = re.subn("。。", "。", r)
         return r
 
@@ -27,39 +27,29 @@ def parseRawData(author = None, constrains = None, max_len = None):
         data = json.loads(open(file).read())
         for poetry in data:
             pdata = ""
-            if (author!=None and poetry.get("author")!=author):
+            if (author != None and poetry.get("author") != author):
                 continue
             p = poetry.get("paragraphs")
-
             flag = False
-            if constrains is not None:
-                for s in p:
-                    sp = re.split("[，！。]", s)
-                    for tr in sp:
-                        flag_num = 0
-                        for constrain in constrains:
-                            if constrain != None and len(tr) != constrain and len(tr)!=0:
-                                flag_num += 1
-                        if flag_num == len(constrains):
-                            flag = True
-                            break
+            for s in p:
+                sp = re.split("[，！。]", s)
+                for tr in sp:
+                    if constrain != None and len(tr) != constrain and len(tr) != 0:
+                        flag = True
+                        break
                     if flag:
                         break
             if flag:
                 continue
             for sentence in poetry.get("paragraphs"):
-                sp = re.split("[！。]", sentence)
-                for tr in sp:
-                    if max_len is not None:
-                        if len(tr) > max_len:
-                            continue
-                        if len(pdata) + len(tr) > max_len and len(pdata) > 11 and len(pdata) <= max_len:
-                            rst.append(pdata)
-                            pdata = ""
-                    pdata += tr
-                    pdata = sentenceParse(pdata)
-
-            if len(pdata) > 11 and len(pdata) <= max_len:
+                pdata += sentence
+                pdata = sentenceParse(pdata)
+                if max_len is not None:
+                    if len(pdata) > max_len:
+                        rst.append(pdata)
+                        pdata = ""
+                        continue
+            if pdata != "" or len(pdata) < 10:
                 rst.append(pdata)
         return rst
     data = []

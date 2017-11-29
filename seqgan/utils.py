@@ -6,6 +6,9 @@ def make_one_hot_vec_target(word, word_to_ix):
     rst = autograd.Variable(torch.LongTensor([word_to_ix[word]]))
     return rst
 
+def invert_dict(d):
+    return dict((v, k) for k, v in d.items())
+
 def prepare_batch_sequence(data, word_to_ix):
     max_len = np.max([len(s) for s in data])
     tensor_data = torch.zeros(len(data), int(max_len+2))
@@ -38,10 +41,12 @@ def generate_samples(generator, max_length, sample_size, word_to_ix):
 
         for j in range(max_length-1):
             output, hidden = generator(input, hidden)
+
             out = torch.multinomial(torch.exp(output), 1)
+            #values, out = torch.max(output, 1)
             if out.data.numpy() == word_to_ix['<END>']:
                 break
-            onesamp.append(int(out.data.numpy()[0][0]))
+            onesamp.append(int(out.data.numpy()))
             input = out
         for j in range(len(onesamp), max_length):
             onesamp.append(word_to_ix['<PAD>'])
@@ -83,6 +88,15 @@ def prepare_discriminator_training_data(true_data, generate_data, gpu=False):
         labels = labels.cuda()
 
     return input, labels
+
+def idx2words(ids, word_to_ix):
+    ix_to_word = invert_dict(word_to_ix)
+    sent = ""
+    idnum = ids.numpy()[0]
+    print(idnum)
+    for id in idnum:
+        sent += ix_to_word[id]
+    return sent
 
 def batchwise_sample(generator, num_samples, batch_size, max_len, word_to_ix):
     samples = []
