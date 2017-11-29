@@ -6,4 +6,12 @@
 
   ---
 
-  add dropout
+11-28:
+
+  + 09-38:
+
+    Train dropout on Bai Li, 5
+
+  ---
+
+  add sub-topics

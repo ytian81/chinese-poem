@@ -7,6 +7,8 @@ import torch.nn as nn
 import random
 import time
 import os
+import numpy as np
+import nltk
 
 from utils import Variable, time_since, USE_CUDA, simplify, dtype
 from data import poem_to_tensor
@@ -19,6 +21,8 @@ class Solver(object):
       self.model = self.model.cuda()
     self.data = data
     self.sub_topics = kwargs.pop('sub_topics', None)
+    self.count = kwargs.pop('count', None)
+    self.pca = kwargs.pop('pca', None)
     self.vocab = vocab
 
     # Unpack keyword arguments
@@ -87,7 +91,9 @@ class Solver(object):
 
       if epoch % self.print_every == 0 and self.verbose:
         print('[%s, %d%%, %.4f]' % (time_since(start), epoch / self.num_epochs * 100, loss))
-        print(self.evaluate())
+        predicted = self.evaluate(topics=["霜","月光","故鄉"])
+        print('Sample: %s' % predicted)
+        print('BLEU-2 score: %.5f\n' % self.BLEU_score(predicted, "牀前看月光，疑是地上霜。舉頭望山月，低頭思故鄉。"))
 
       if epoch % self.plot_every == 0:
         loss_avg /= self.plot_every
@@ -108,9 +114,17 @@ class Solver(object):
     print("save best model with loss %.3f" % best_loss)
 
   @simplify
-  def evaluate(self, start_with="牀前看月光", temperature=0.8, max_length=1000):
+  def evaluate(self, start_with="牀前看月光", temperature=0.8, max_length=1000, topics=None):
     self.model.eval()
     hidden = self.model.init_hidden()
+    if topics is not None:
+      count_keys = list(self.count.keys())
+      topics_index = [count_keys.index(key) for key in topics]
+      topics = np.zeros((1, len(self.count)))
+      topics[0, topics_index] = 1
+      topics = self.pca.transform(topics)
+      topics = Variable(torch.from_numpy(topics).type(dtype))
+      hidden[0][0,0,:] = topics
     start_input = poem_to_tensor(start_with, self.vocab)
     predicted = start_with
 
@@ -134,3 +148,11 @@ class Solver(object):
       word = poem_to_tensor(predicted_word, self.vocab)
 
     return predicted
+  
+  def BLEU_score(self, predicted, ground_truth=None):
+    if ground_truth is None:
+      raise "please provide ground truth"
+    reference = [word for word in predicted]
+    hypothesis = [word for word in ground_truth]
+    BLEU_score = nltk.translate.bleu_score.sentence_bleu([reference], hypothesis, weights=[0.4, 0.5, 0.1, 0])
+    return BLEU_score
